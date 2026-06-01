@@ -64,14 +64,20 @@ header { background: #1a2332; color: white; padding: 10px 18px; display: flex; a
 .ct tr.hl td { background: #fff3cd; font-weight: 700; }
 
 /* WFS Layer toggles */
-.layer-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
-.layer-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; border: 2px solid rgba(0,0,0,.2); }
+.layer-row { display: flex; align-items: center; gap: 7px; padding: 4px 5px; font-size: 12px; cursor: pointer; border-radius: 5px; transition: background .15s; }
+.layer-row:hover { background: #f0f4ff; }
+.layer-row.off .layer-name { opacity: 0.4; text-decoration: line-through; }
+.layer-row.off .layer-dot { opacity: 0.3; }
+.layer-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+.layer-eye { font-size: 13px; flex-shrink: 0; opacity: 0.8; }
+.layer-row.off .layer-eye { opacity: 0.3; }
 .layer-name { flex: 1; }
-.layer-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.layer-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 10px; white-space: nowrap; }
 .lb-ok { background: #e8f5e9; color: #2e7d32; }
 .lb-loading { background: #e3f2fd; color: #1565c0; }
 .lb-err { background: #ffebee; color: #c62828; }
 .lb-none { background: #f5f5f5; color: #616161; }
+.layer-group-hdr { font-size: 10px; font-weight: 700; color: #556; text-transform: uppercase; letter-spacing: .5px; padding: 6px 0 2px; border-top: 1px solid #eee; margin-top: 2px; }
 
 /* Potential card */
 .pot-card { background: linear-gradient(135deg, #1a2332, #2c3e55); color: white; border-radius: 10px; padding: 14px; margin-bottom: 8px; }
@@ -231,40 +237,44 @@ function zoneColor(code) {
 // WFS Layer-Definition
 const WFS_LAYERS = [
   // Raumplanung / Nutzungsplanung
-  { id: 'grundnutzung',        name: 'Grundnutzung',                   color: '#ff9800', fillOpacity: 0.35, group: 'Raumplanung' },
-  { id: 'ueberlagerung_fl',    name: 'Überlagerungen',                 color: '#e91e63', fillOpacity: 0.3,  group: 'Raumplanung' },
-  { id: 'baulinien',           name: 'Baulinien (Zonenplan)',          color: '#f44336', fillOpacity: 0,    group: 'Raumplanung' },
-  { id: 'naturgefahren',       name: 'Naturgefahren (Zonenplan)',      color: '#9c27b0', fillOpacity: 0.2,  group: 'Raumplanung' },
-  { id: 'gewaesserraum_zp',    name: 'Gewässerraum (Zonenplan)',       color: '#2196f3', fillOpacity: 0.3,  group: 'Raumplanung' },
-  { id: 'bebauungsplaene',     name: 'Bebauungspläne',                 color: '#ff5722', fillOpacity: 0.2,  group: 'Raumplanung' },
-  { id: 'gestaltungsplaene',   name: 'Gestaltungspläne',               color: '#795548', fillOpacity: 0.2,  group: 'Raumplanung' },
-  { id: 'baulinien_sb',        name: 'Baulinien (Strassen/Gewässer)',  color: '#f44336', fillOpacity: 0,    group: 'Raumplanung' },
-  { id: 'waldgrenzen',         name: 'Statische Waldgrenzen',          color: '#4caf50', fillOpacity: 0,    group: 'Raumplanung' },
-  { id: 'mobilitaetskonzepte', name: 'Mobilitätskonzepte',             color: '#607d8b', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'grundnutzung',        name: 'Grundnutzung',                    color: '#ff9800', fillOpacity: 0.35, group: 'Raumplanung' },
+  { id: 'ueberlagerung_fl',    name: 'Überlagerungen',                  color: '#e91e63', fillOpacity: 0.3,  group: 'Raumplanung' },
+  { id: 'baulinien',           name: 'Baulinien (Zonenplan)',           color: '#f44336', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'naturgefahren',       name: 'Naturgefahren (Zonenplan)',       color: '#9c27b0', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'gewaesserraum_zp',    name: 'Gewässerraum (Zonenplan)',        color: '#2196f3', fillOpacity: 0.3,  group: 'Raumplanung' },
+  { id: 'bebauungsplaene',     name: 'Bebauungspläne',                  color: '#ff5722', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'gestaltungsplaene',   name: 'Gestaltungspläne',                color: '#795548', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'baulinien_sb',        name: 'Baulinien (Strassen/Gewässer)',   color: '#e53935', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'waldgrenzen',         name: 'Statische Waldgrenzen',           color: '#4caf50', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'mobilitaetskonzepte', name: 'Mobilitätskonzepte',              color: '#607d8b', fillOpacity: 0.2,  group: 'Raumplanung' },
   // Naturgefahren / Risiken
-  { id: 'gefahrenkarte',       name: 'Gefahrenkarte',                  color: '#b71c1c', fillOpacity: 0.35, group: 'Naturgefahren' },
-  { id: 'gefahrenhinweis',     name: 'Gefahrenhinweiskarte',           color: '#e53935', fillOpacity: 0.25, group: 'Naturgefahren' },
-  { id: 'oberflaechenabfluss', name: 'Oberflächenabfluss',             color: '#0288d1', fillOpacity: 0.3,  group: 'Naturgefahren' },
-  { id: 'bodenverschiebung',   name: 'Prüfperimeter Bodenverschiebung',color: '#ff6f00', fillOpacity: 0.25, group: 'Naturgefahren' },
-  { id: 'baugrundklassen',     name: 'Baugrundklassen',                color: '#8d6e63', fillOpacity: 0.25, group: 'Naturgefahren' },
-  // Wald / Natur
-  { id: 'einzelbaeume',        name: 'Einzelbäume',                    color: '#1b5e20', fillOpacity: 0.6,  group: 'Natur' },
+  { id: 'gefahrenkarte',       name: 'Gefahrenkarte',                   color: '#b71c1c', fillOpacity: 0.35, group: 'Naturgefahren' },
+  { id: 'gefahrenhinweis',     name: 'Gefahrenhinweiskarte',            color: '#e53935', fillOpacity: 0.25, group: 'Naturgefahren' },
+  { id: 'oberflaechenabfluss', name: 'Oberflächenabfluss',              color: '#0288d1', fillOpacity: 0.3,  group: 'Naturgefahren' },
+  { id: 'bodenverschiebung',   name: 'Prüfperimeter Bodenverschiebung', color: '#ff6f00', fillOpacity: 0.25, group: 'Naturgefahren' },
+  { id: 'baugrundklassen',     name: 'Baugrundklassen',                 color: '#8d6e63', fillOpacity: 0.25, group: 'Naturgefahren' },
+  // Natur
+  { id: 'einzelbaeume',        name: 'Einzelbäume',                     color: '#1b5e20', fillOpacity: 0.6,  group: 'Natur' },
   // Energie
-  { id: 'erdwaerme',           name: 'Erdwärmenutzung',                color: '#ff6d00', fillOpacity: 0.3,  group: 'Energie' },
+  { id: 'erdwaerme',           name: 'Erdwärmenutzung',                 color: '#ff6d00', fillOpacity: 0.3,  group: 'Energie' },
   // Verkehr
-  { id: 'strassennetz',        name: 'Strassen- und Wegnetz',          color: '#546e7a', fillOpacity: 0,    group: 'Verkehr' },
-  { id: 'kantonsstrassen',     name: 'Kantonsstrassen',                color: '#37474f', fillOpacity: 0,    group: 'Verkehr' },
-  { id: 'fussgaengerstreifen', name: 'Fussgängerstreifen',             color: '#ffd600', fillOpacity: 0.5,  group: 'Verkehr' },
-  { id: 'oev_einzugsgebiete',  name: 'ÖV Haltestelleneinzugsgebiete', color: '#00838f', fillOpacity: 0.2,  group: 'Verkehr' },
-  // Gebäude / Anlagen
-  { id: 'denkmal',             name: 'Denkmal & Bauinventar',          color: '#6a1b9a', fillOpacity: 0.3,  group: 'Gebäude' },
-  { id: 'isos',                name: 'Ortsbilder (ISOS)',               color: '#4a148c', fillOpacity: 0.2,  group: 'Gebäude' },
+  { id: 'strassennetz',        name: 'Strassen- und Wegnetz',           color: '#546e7a', fillOpacity: 0,    group: 'Verkehr' },
+  { id: 'kantonsstrassen',     name: 'Kantonsstrassen',                 color: '#37474f', fillOpacity: 0,    group: 'Verkehr' },
+  { id: 'fussgaengerstreifen', name: 'Fussgängerstreifen',              color: '#ffd600', fillOpacity: 0.5,  group: 'Verkehr' },
+  { id: 'oev_einzugsgebiete',  name: 'ÖV Haltestelleneinzugsgebiete',  color: '#00838f', fillOpacity: 0.2,  group: 'Verkehr' },
+  // Gebäude
+  { id: 'denkmal',             name: 'Denkmal & Bauinventar',           color: '#6a1b9a', fillOpacity: 0.3,  group: 'Gebäude' },
+  { id: 'isos',                name: 'Ortsbilder (ISOS)',                color: '#4a148c', fillOpacity: 0.2,  group: 'Gebäude' },
   // Sicherheit
-  { id: 'zivilschutz',         name: 'Schutzbauten Zivilschutz',       color: '#1565c0', fillOpacity: 0.4,  group: 'Sicherheit' },
+  { id: 'zivilschutz',         name: 'Schutzbauten Zivilschutz',        color: '#1565c0', fillOpacity: 0.4,  group: 'Sicherheit' },
   // Umwelt
-  { id: 'kbs',                 name: 'Kataster belastete Standorte',   color: '#c62828', fillOpacity: 0.4,  group: 'Umwelt' },
-  { id: 'strassenlaerm',       name: 'Strassenlärmkataster',           color: '#e65100', fillOpacity: 0.3,  group: 'Umwelt' },
+  { id: 'kbs',                 name: 'Kataster belastete Standorte',    color: '#c62828', fillOpacity: 0.4,  group: 'Umwelt' },
+  { id: 'strassenlaerm',       name: 'Strassenlärmkataster',            color: '#e65100', fillOpacity: 0.3,  group: 'Umwelt' },
 ];
+
+// Per-layer visibility state (all visible by default)
+const layerVisible = {};
+WFS_LAYERS.forEach(d => { layerVisible[d.id] = true; });
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let map, baseTile, parcelLayer, vLayer, lLayer;
@@ -445,14 +455,15 @@ async function draw() {
 // ── WFS Loading ───────────────────────────────────────────────────────────────
 async function loadAllWFS() {
   if (!geoWGS || !parcelLayer) return;
+
+  // BBOX aus vollem Parcel-Bounds + 50m Puffer
   const b = parcelLayer.getBounds();
-  const pad = 100; // metre buffer
-  const lv = wgsToLV95(b.getCenter().lat, b.getCenter().lng);
-  const bbox = `${lv.E - pad},${lv.N - pad},${lv.E + pad},${lv.N + pad}`;
+  const sw = wgsToLV95(b.getSouth(), b.getWest());
+  const ne = wgsToLV95(b.getNorth(), b.getEast());
+  const pad = 50;
+  const bbox = `${sw.E - pad},${sw.N - pad},${ne.E + pad},${ne.N + pad}`;
 
-  // Update badges
   WFS_LAYERS.forEach(def => updateBadge(def.id, 'loading', 'Lädt…'));
-
   await Promise.all(WFS_LAYERS.map(def => loadWFSLayer(def, bbox)));
   updatePotential();
 }
@@ -463,56 +474,69 @@ async function loadWFSLayer(def, bbox) {
     const r = await fetch(url);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
-    const features = data.features || (data.results ? data.results.map(r => ({ type: 'Feature', properties: r.attributes || {}, geometry: normGeom(r.geometry) })) : []);
+    const features = (data.features || []).map(f => ({
+      ...f,
+      geometry: f.geometry ? normGeom(f.geometry) : null
+    })).filter(f => f.geometry);
 
     if (!features.length) { updateBadge(def.id, 'none', 'Keine Daten'); return; }
 
     const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
       style: feat => {
-        // Grundnutzung: Farbe nach Zonentyp
         if (def.id === 'grundnutzung') {
-          const code = feat.properties['Zonentyp_Planungs-_und_Baugesetz'] || feat.properties.Zonentyp_Kanton;
-          return { color: '#666', weight: 1, fillColor: zoneColor(code), fillOpacity: 0.45 };
+          const code = feat.properties['ZONTYP_PBG'] || feat.properties['ZONTYP_KT'];
+          return { color: '#555', weight: 1, fillColor: zoneColor(code), fillOpacity: 0.45 };
         }
-        return { color: def.color, weight: def.id === 'baulinien' ? 3 : 1.5, fillColor: def.color, fillOpacity: def.fillOpacity, dashArray: def.id === 'baulinien' ? '6,4' : null };
+        const isLine = feat.geometry?.type?.includes('LineString');
+        return {
+          color: def.color,
+          weight: isLine ? 2.5 : 1.5,
+          fillColor: def.color,
+          fillOpacity: isLine ? 0 : def.fillOpacity,
+          dashArray: (def.id === 'baulinien' || def.id === 'baulinien_sb' || def.id === 'waldgrenzen') ? '6,4' : null
+        };
       },
+      pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
+        radius: 5, color: def.color, fillColor: def.color, fillOpacity: 0.8, weight: 1.5
+      }),
       onEachFeature: (feat, lyr) => {
         const p = feat.properties;
         if (def.id === 'grundnutzung') {
-          const name = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
-          const uz = p['Überbauungsziffer_1__maximal_'];
-          const gh = p['Gesamthöhe__maximal___m_'];
-          const fh = p['Fassadenhöhe__maximal___m_'];
-          const gl = p['Gebäudelänge__m_'];
-          const art = p['Artikel_im_BZR'];
-          lyr.bindPopup(`<div class="zone-popup">
-            <b>${name}</b>
-            <table>
-              ${uz != null ? '<tr><td>ÜZ max.</td><td><b>' + uz + '</b></td></tr>' : ''}
-              ${gh != null ? '<tr><td>Gesamthöhe max.</td><td><b>' + gh + ' m</b></td></tr>' : ''}
-              ${fh != null ? '<tr><td>Fassadenhöhe max.</td><td><b>' + fh + ' m</b></td></tr>' : ''}
-              ${gl != null ? '<tr><td>Gebäudelänge max.</td><td><b>' + gl + ' m</b></td></tr>' : ''}
-              ${art ? '<tr><td>BZR Artikel</td><td><b>' + art + '</b></td></tr>' : ''}
-            </table>
-          </div>`);
+          const name = p['ZONTYP_BEZ'] || p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          const uz = p['UEZ1_MAX'] ?? p['Überbauungsziffer_1__maximal_'];
+          const gh = p['GESHOE_MAX'] ?? p['Gesamthöhe__maximal___m_'];
+          const fh = p['FAHOE_MAX'] ?? p['Fassadenhöhe__maximal___m_'];
+          const gl = p['GEBLAENGE'] ?? p['Gebäudelänge__m_'];
+          const art = p['BZR_ARTIKEL'] || p['Artikel_im_BZR'];
+          lyr.bindPopup(`<div class="zone-popup"><b>${name}</b><table>
+            ${uz != null ? `<tr><td>ÜZ max.</td><td><b>${uz}</b></td></tr>` : ''}
+            ${gh != null ? `<tr><td>Gesamthöhe max.</td><td><b>${gh} m</b></td></tr>` : ''}
+            ${fh != null ? `<tr><td>Fassadenhöhe max.</td><td><b>${fh} m</b></td></tr>` : ''}
+            ${gl != null ? `<tr><td>Gebäudelänge max.</td><td><b>${gl} m</b></td></tr>` : ''}
+            ${art ? `<tr><td>BZR Artikel</td><td><b>${art}</b></td></tr>` : ''}
+          </table></div>`);
         } else {
-          const info = Object.entries(p).filter(([k,v]) => v && !['OBJECTID','GmlID'].includes(k)).slice(0,5).map(([k,v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('');
-          if (info) lyr.bindPopup('<div class="zone-popup"><table>' + info + '</table></div>');
+          const skip = new Set(['OBJECTID','GmlID','Shape','Shape_Length','Shape_Area']);
+          const rows = Object.entries(p)
+            .filter(([k,v]) => v != null && v !== '' && !skip.has(k))
+            .slice(0, 8)
+            .map(([k,v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('');
+          if (rows) lyr.bindPopup(`<div class="zone-popup"><b>${def.name}</b><table>${rows}</table></div>`);
         }
       }
     });
 
-    if (showWFS) layer.addTo(map);
-    // Bring parcel to front
-    if (parcelLayer) parcelLayer.bringToFront();
+    // Add to map only if this layer is currently visible
+    if (layerVisible[def.id]) {
+      layer.addTo(map);
+      if (parcelLayer) parcelLayer.bringToFront();
+    }
     wfsLayerMap[def.id] = layer;
     updateBadge(def.id, 'ok', features.length + ' Obj.');
-    // Update panel badge
-    const el = document.getElementById('wfs-badge-' + def.id);
-    if (el) { el.className = 'layer-badge lb-ok'; el.textContent = features.length + ' Obj.'; }
+
   } catch(e) {
     updateBadge(def.id, 'err', 'Fehler');
-    console.warn('WFS', def.id, e);
+    console.warn('WFS', def.id, e.message);
   }
 }
 
@@ -528,7 +552,10 @@ function updatePotential() {
   const parcelArea = calcAreaLV95(getLV95Ring());
   let zoneInfo = '–', uz = null, gh = null, fh = null, gl = null;
 
-  // Find zone that intersects parcel centroid
+  const waldPresent = ['waldgrenzen','waldgrenzen_zp'].some(id =>
+    wfsLayerMap[id] && Object.keys(wfsLayerMap[id]._layers || {}).length > 0);
+
+  // Read Grundnutzung properties with new field names
   const bounds = parcelLayer ? parcelLayer.getBounds() : null;
   if (bounds) {
     const center = bounds.getCenter();
@@ -538,18 +565,15 @@ function updatePotential() {
         const b = l.getBounds();
         if (b.contains(center)) {
           const p = l.feature.properties;
-          zoneInfo = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
-          uz = p['Überbauungsziffer_1__maximal_'];
-          gh = p['Gesamthöhe__maximal___m_'];
-          fh = p['Fassadenhöhe__maximal___m_'];
-          gl = p['Gebäudelänge__m_'];
+          zoneInfo = p['ZONTYP_BEZ'] || p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          uz = p['UEZ1_MAX'] ?? p['Überbauungsziffer_1__maximal_'];
+          gh = p['GESHOE_MAX'] ?? p['Gesamthöhe__maximal___m_'];
+          fh = p['FAHOE_MAX'] ?? p['Fassadenhöhe__maximal___m_'];
+          gl = p['GEBLAENGE'] ?? p['Gebäudelänge__m_'];
         }
       } catch(e) {}
     });
   }
-
-  const waldPresent = (wfsLayerMap['waldgrenzen'] && Object.keys(wfsLayerMap['waldgrenzen']._layers || {}).length > 0) ||
-                      (wfsLayerMap['waldgrenzen_zp'] && Object.keys(wfsLayerMap['waldgrenzen_zp']._layers || {}).length > 0);
   let nettArea = parcelArea;
   if (waldPresent) nettArea = Math.max(0, nettArea - parcelArea * 0.1);
   const bgf = uz ? nettArea * uz : null;
@@ -587,20 +611,25 @@ function buildPanel(lv95ring, area, perim) {
   if (p.kanton) rows.push(['Kanton', p.kanton]);
   if (rows.length) pb.appendChild(mk('🗂 Parzelle', rows));
 
-  // WFS Layers – grouped by category
+  // WFS Layers – grouped, each row toggles visibility
   const wc = document.createElement('div'); wc.className = 'ic';
-  wc.innerHTML = '<div class="it">🗂 Geodaten LU (' + WFS_LAYERS.length + ' Layer)</div>';
+  wc.innerHTML = '<div class="it">🗂 Geodaten LU — klicken zum Ein/Ausblenden</div>';
   const groups = [...new Set(WFS_LAYERS.map(d => d.group))];
-  groups.forEach(grp => {
-    const grpDiv = document.createElement('div');
-    grpDiv.style.cssText = 'font-size:10px;font-weight:700;color:#1a2332;margin:6px 0 2px;text-transform:uppercase;letter-spacing:.4px;';
-    grpDiv.textContent = grp;
-    wc.appendChild(grpDiv);
+  groups.forEach((grp, gi) => {
+    const hdr = document.createElement('div');
+    hdr.className = 'layer-group-hdr';
+    if (gi === 0) hdr.style.borderTop = 'none';
+    hdr.textContent = grp;
+    wc.appendChild(hdr);
     WFS_LAYERS.filter(d => d.group === grp).forEach(def => {
-      const row = document.createElement('div'); row.className = 'layer-row';
-      row.innerHTML = `<div class="layer-dot" style="background:${def.color}"></div>
+      const row = document.createElement('div');
+      row.className = 'layer-row' + (layerVisible[def.id] ? '' : ' off');
+      row.id = 'layer-row-' + def.id;
+      row.innerHTML = `<span class="layer-eye">${layerVisible[def.id] ? '👁' : '🚫'}</span>
+        <div class="layer-dot" style="background:${def.color}"></div>
         <span class="layer-name">${def.name}</span>
         <span class="layer-badge lb-loading" id="wfs-badge-${def.id}">Wartet…</span>`;
+      row.addEventListener('click', () => toggleLayerVisibility(def.id));
       wc.appendChild(row);
     });
   });
@@ -663,9 +692,29 @@ function toggleL() {
   else { if (lLayer) { map.removeLayer(lLayer); lLayer = null; } }
 }
 function toggleWFS() {
-  showWFS = !showWFS; document.getElementById('btn-wfs').classList.toggle('on', showWFS);
-  Object.values(wfsLayerMap).forEach(l => { if (!l) return; if (showWFS) { if (!map.hasLayer(l)) map.addLayer(l); } else map.removeLayer(l); });
+  showWFS = !showWFS;
+  document.getElementById('btn-wfs').classList.toggle('on', showWFS);
+  WFS_LAYERS.forEach(def => {
+    const l = wfsLayerMap[def.id];
+    if (!l) return;
+    if (showWFS && layerVisible[def.id]) { if (!map.hasLayer(l)) map.addLayer(l); }
+    else map.removeLayer(l);
+  });
   if (parcelLayer) parcelLayer.bringToFront();
+}
+
+function toggleLayerVisibility(id) {
+  const l = wfsLayerMap[id];
+  layerVisible[id] = !layerVisible[id];
+  const row = document.getElementById('layer-row-' + id);
+  if (row) {
+    row.classList.toggle('off', !layerVisible[id]);
+    const eye = row.querySelector('.layer-eye');
+    if (eye) eye.textContent = layerVisible[id] ? '👁' : '🚫';
+  }
+  if (!l) return;
+  if (layerVisible[id] && showWFS) { if (!map.hasLayer(l)) { map.addLayer(l); if (parcelLayer) parcelLayer.bringToFront(); } }
+  else map.removeLayer(l);
 }
 function togglePanel() { document.getElementById('panel').classList.toggle('closed'); }
 function setBase(m) {
