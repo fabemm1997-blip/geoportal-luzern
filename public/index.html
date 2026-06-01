@@ -124,6 +124,19 @@ header { background: #1a2332; color: white; padding: 10px 18px; display: flex; a
 .zone-popup table { width: 100%; border-collapse: collapse; }
 .zone-popup td { padding: 2px 4px; border-bottom: 1px solid #f0f0f0; }
 .zone-popup td:first-child { color: #888; width: 55%; }
+
+/* WFS hover tooltip */
+.wfs-tooltip {
+  background: rgba(26,35,50,.92);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  pointer-events: none;
+}
+.wfs-tooltip::before { display: none; }
 </style>
 </head>
 <body>
@@ -521,26 +534,62 @@ async function loadWFSLayer(def, bbox) {
       onEachFeature: (feat, lyr) => {
         const p = feat.properties;
         if (def.id === 'grundnutzung') {
-          const name = p['ZONTYP_BEZ'] || p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
-          const uz = p['UEZ1_MAX'] ?? p['Überbauungsziffer_1__maximal_'];
-          const gh = p['GESHOE_MAX'] ?? p['Gesamthöhe__maximal___m_'];
-          const fh = p['FAHOE_MAX'] ?? p['Fassadenhöhe__maximal___m_'];
-          const gl = p['GEBLAENGE'] ?? p['Gebäudelänge__m_'];
-          const art = p['BZR_ARTIKEL'] || p['Artikel_im_BZR'];
-          lyr.bindPopup(`<div class="zone-popup"><b>${name}</b><table>
-            ${uz != null ? `<tr><td>ÜZ max.</td><td><b>${uz}</b></td></tr>` : ''}
-            ${gh != null ? `<tr><td>Gesamthöhe max.</td><td><b>${gh} m</b></td></tr>` : ''}
-            ${fh != null ? `<tr><td>Fassadenhöhe max.</td><td><b>${fh} m</b></td></tr>` : ''}
-            ${gl != null ? `<tr><td>Gebäudelänge max.</td><td><b>${gl} m</b></td></tr>` : ''}
-            ${art ? `<tr><td>BZR Artikel</td><td><b>${art}</b></td></tr>` : ''}
-          </table></div>`);
+          const name = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          const abk  = p['Abkürzung_Zonentyp_Gemeinde'] || '';
+          const uz   = p['Überbauungsziffer_1__maximal_'];
+          const gh   = p['Gesamthöhe__maximal___m_'];
+          const fh   = p['Fassadenhöhe__maximal___m_'];
+          const gl   = p['Gebäudelänge__m_'];
+          const gb   = p['Gebäudebreite__m_'];
+          const art  = p['Artikel_im_BZR'];
+          const bw   = p['Bauweise'];
+          const les  = p['Lärmempfindlichkeitsstufe__ES_'];
+          const bwMap = {1:'offen',2:'geschlossen',3:'keine Bebauung',99:'–'};
+          const lesMap = {1:'ES I',2:'ES II',3:'ES III',4:'ES IV',97:'nicht def.'};
+
+          // ÜZ-Berechnung mit Boni
+          let uzHtml = '';
+          if (uz != null) {
+            const parcelArea = geoLV95 ? calcAreaLV95(getLV95Ring()) : null;
+            const uzEnergie = +(uz + 0.05).toFixed(3);  // +5% Energiebonus PBV
+            // Vorspringende Gebäudeteile: 2 × 1.5m Tiefe × Gebäudelänge × 1/3 aufrechenbar
+            const vpGT = gl ? +(2 * 1.5 * gl / 3).toFixed(1) : null;
+            const bgfBase  = parcelArea ? +(parcelArea * uz).toFixed(1) : null;
+            const bgfBonus = parcelArea ? +(parcelArea * uzEnergie).toFixed(1) : null;
+            uzHtml = `
+              <tr><td>ÜZ max.</td><td><b>${uz}</b></td></tr>
+              <tr><td>ÜZ + Energiebonus (+5%)</td><td><b>${uzEnergie}</b></td></tr>
+              ${vpGT != null ? `<tr><td>Vorspringende Gebäudeteile</td><td><b>+${vpGT} m²</b> <span style="color:#888;font-size:10px">(2×1.5m×${gl}m×⅓)</span></td></tr>` : ''}
+              ${bgfBase != null ? `<tr><td>Max. BGF (Basis)</td><td><b>${bgfBase.toLocaleString('de-CH')} m²</b></td></tr>` : ''}
+              ${bgfBonus != null ? `<tr><td>Max. BGF (mit Bonus)</td><td><b>${bgfBonus.toLocaleString('de-CH')} m²</b></td></tr>` : ''}`;
+          }
+
+          const popup = `<div class="zone-popup">
+            <b>${name}${abk ? ' ('+abk+')' : ''}</b>
+            <table>
+              ${uzHtml}
+              ${gh != null ? `<tr><td>Gesamthöhe max.</td><td><b>${gh} m</b></td></tr>` : ''}
+              ${fh != null ? `<tr><td>Fassadenhöhe max.</td><td><b>${fh} m</b></td></tr>` : ''}
+              ${gl != null ? `<tr><td>Gebäudelänge max.</td><td><b>${gl} m</b></td></tr>` : ''}
+              ${gb != null ? `<tr><td>Gebäudebreite max.</td><td><b>${gb} m</b></td></tr>` : ''}
+              ${art  ? `<tr><td>BZR Artikel</td><td><b>${art}</b></td></tr>` : ''}
+              ${bw  != null ? `<tr><td>Bauweise</td><td><b>${bwMap[bw]||bw}</b></td></tr>` : ''}
+              ${les != null ? `<tr><td>Lärmempfindlichkeit</td><td><b>${lesMap[les]||les}</b></td></tr>` : ''}
+            </table>
+          </div>`;
+          lyr.bindPopup(popup, {maxWidth: 320});
+          // Hover tooltip (Kurzinfo)
+          lyr.bindTooltip(`<b>${name}</b>${uz != null ? '<br>ÜZ: '+uz : ''}${gh != null ? ' · GH: '+gh+'m' : ''}`, {sticky: true, className: 'wfs-tooltip'});
         } else {
           const skip = new Set(['OBJECTID','GmlID','Shape','Shape_Length','Shape_Area']);
-          const rows = Object.entries(p)
-            .filter(([k,v]) => v != null && v !== '' && !skip.has(k))
-            .slice(0, 8)
-            .map(([k,v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('');
-          if (rows) lyr.bindPopup(`<div class="zone-popup"><b>${def.name}</b><table>${rows}</table></div>`);
+          const entries = Object.entries(p).filter(([k,v]) => v != null && v !== '' && !skip.has(k));
+          const rows = entries.slice(0, 10).map(([k,v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('');
+          if (rows) {
+            lyr.bindPopup(`<div class="zone-popup"><b>${def.name}</b><table>${rows}</table></div>`, {maxWidth: 300});
+            // Hover tooltip: erste 2 relevante Felder
+            const tipEntries = entries.filter(([k]) => !k.startsWith('Identifikator') && !k.startsWith('Filename') && !k.startsWith('Datenmodell')).slice(0,2);
+            if (tipEntries.length) lyr.bindTooltip(`<b>${def.name}</b><br>${tipEntries.map(([k,v])=>`${k}: ${v}`).join('<br>')}`, {sticky: true, className: 'wfs-tooltip'});
+          }
         }
       }
     });
@@ -581,7 +630,6 @@ function updatePotential() {
   const waldPresent = ['waldgrenzen','waldgrenzen_zp'].some(id =>
     wfsLayerMap[id] && Object.keys(wfsLayerMap[id]._layers || {}).length > 0);
 
-  // Read Grundnutzung properties with new field names
   const bounds = parcelLayer ? parcelLayer.getBounds() : null;
   if (bounds) {
     const center = bounds.getCenter();
@@ -591,19 +639,23 @@ function updatePotential() {
         const b = l.getBounds();
         if (b.contains(center)) {
           const p = l.feature.properties;
-          zoneInfo = p['ZONTYP_BEZ'] || p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
-          uz = p['UEZ1_MAX'] ?? p['Überbauungsziffer_1__maximal_'];
-          gh = p['GESHOE_MAX'] ?? p['Gesamthöhe__maximal___m_'];
-          fh = p['FAHOE_MAX'] ?? p['Fassadenhöhe__maximal___m_'];
-          gl = p['GEBLAENGE'] ?? p['Gebäudelänge__m_'];
+          zoneInfo = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          uz   = p['Überbauungsziffer_1__maximal_'];
+          gh   = p['Gesamthöhe__maximal___m_'];
+          fh   = p['Fassadenhöhe__maximal___m_'];
+          gl   = p['Gebäudelänge__m_'];
         }
       } catch(e) {}
     });
   }
   let nettArea = parcelArea;
   if (waldPresent) nettArea = Math.max(0, nettArea - parcelArea * 0.1);
-  const bgf = uz ? nettArea * uz : null;
-  const whg = bgf ? Math.floor(bgf / 90) : null;
+  const bgfBase  = uz  ? +(nettArea * uz).toFixed(1) : null;
+  const uzBonus  = uz  ? +(uz + 0.05).toFixed(3) : null;
+  const bgfBonus = uzBonus ? +(nettArea * uzBonus).toFixed(1) : null;
+  const vpGT     = (uz && gl) ? +(2 * 1.5 * gl / 3).toFixed(1) : null;
+  const bgfTotal = (bgfBonus != null && vpGT != null) ? +(bgfBonus + vpGT).toFixed(1) : bgfBonus;
+  const whg = bgfTotal ? Math.floor(bgfTotal / 90) : null;
 
   const pc = document.getElementById('potential-card');
   if (!pc) return;
@@ -613,12 +665,16 @@ function updatePotential() {
       <div class="pot-stat"><div class="pl">Zone</div><div class="pv gold" style="font-size:12px">${zoneInfo}</div></div>
       <div class="pot-stat"><div class="pl">Parzellenfläche</div><div class="pv">${fmtArea(parcelArea)}</div></div>
       ${uz != null ? `<div class="pot-stat"><div class="pl">ÜZ max.</div><div class="pv">${uz}</div></div>` : ''}
+      ${uzBonus != null ? `<div class="pot-stat"><div class="pl">ÜZ + Energiebonus</div><div class="pv green">${uzBonus}</div></div>` : ''}
       ${gh != null ? `<div class="pot-stat"><div class="pl">Gesamthöhe max.</div><div class="pv">${gh} m</div></div>` : ''}
-      ${bgf != null ? `<div class="pot-stat"><div class="pl">Max. BGF</div><div class="pv green">${fmtArea(bgf)}</div></div>` : ''}
+      ${fh != null ? `<div class="pot-stat"><div class="pl">Fassadenhöhe max.</div><div class="pv">${fh} m</div></div>` : ''}
+      ${bgfBase != null ? `<div class="pot-stat"><div class="pl">BGF (ÜZ)</div><div class="pv">${fmtArea(bgfBase)}</div></div>` : ''}
+      ${vpGT != null ? `<div class="pot-stat"><div class="pl">+ Vorspringende GT</div><div class="pv">+${vpGT} m²</div></div>` : ''}
+      ${bgfTotal != null ? `<div class="pot-stat"><div class="pl">BGF total (max.)</div><div class="pv green">${fmtArea(bgfTotal)}</div></div>` : ''}
       ${whg != null ? `<div class="pot-stat"><div class="pl">Ca. Wohnungen</div><div class="pv gold">${whg} Whg</div></div>` : ''}
       ${waldPresent ? `<div class="pot-stat"><div class="pl">Waldabstand</div><div class="pv red">⚠️ 10m</div></div>` : ''}
     </div>
-    <div style="font-size:10px;color:#8899aa;margin-top:8px">⚠️ Schätzung – kein Ersatz für Fachberatung</div>`;
+    <div style="font-size:10px;color:#8899aa;margin-top:8px">⚠️ Schätzung – kein Ersatz für Fachberatung<br>Energiebonus +5% gem. PBV · Vorspringende GT: 2×1.5m×Gebäudelänge×⅓</div>`;
 }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
