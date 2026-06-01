@@ -272,9 +272,9 @@ const WFS_LAYERS = [
   { id: 'strassenlaerm',       name: 'Strassenlärmkataster',            color: '#e65100', fillOpacity: 0.3,  group: 'Umwelt' },
 ];
 
-// Per-layer visibility state (all visible by default)
+// Per-layer visibility — start all OFF, auto-enable when data arrives
 const layerVisible = {};
-WFS_LAYERS.forEach(d => { layerVisible[d.id] = true; });
+WFS_LAYERS.forEach(d => { layerVisible[d.id] = false; });
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let map, baseTile, parcelLayer, vLayer, lLayer;
@@ -479,7 +479,18 @@ async function loadWFSLayer(def, bbox) {
       geometry: f.geometry ? normGeom(f.geometry) : null
     })).filter(f => f.geometry);
 
-    if (!features.length) { updateBadge(def.id, 'none', 'Keine Daten'); return; }
+    if (!features.length) {
+      updateBadge(def.id, 'none', 'Keine Daten');
+      // Auto-hide: mark as off and update row
+      layerVisible[def.id] = false;
+      const row = document.getElementById('layer-row-' + def.id);
+      if (row) {
+        row.classList.add('off');
+        const eye = row.querySelector('.layer-eye');
+        if (eye) eye.textContent = '–';
+      }
+      return;
+    }
 
     const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
       style: feat => {
@@ -487,17 +498,25 @@ async function loadWFSLayer(def, bbox) {
           const code = feat.properties['ZONTYP_PBG'] || feat.properties['ZONTYP_KT'];
           return { color: '#555', weight: 1, fillColor: zoneColor(code), fillOpacity: 0.45 };
         }
-        const isLine = feat.geometry?.type?.includes('LineString');
+        const geomType = feat.geometry?.type || '';
+        const isLine = geomType.includes('LineString');
+        const isPoly = geomType.includes('Polygon');
         return {
           color: def.color,
-          weight: isLine ? 2.5 : 1.5,
+          weight: isLine ? 4 : isPoly ? 1.5 : 2,
           fillColor: def.color,
           fillOpacity: isLine ? 0 : def.fillOpacity,
-          dashArray: (def.id === 'baulinien' || def.id === 'baulinien_sb' || def.id === 'waldgrenzen') ? '6,4' : null
+          dashArray: (def.id === 'baulinien' || def.id === 'baulinien_sb') ? '8,5' :
+                     def.id === 'waldgrenzen' ? '6,4' : null,
+          opacity: 1,
         };
       },
       pointToLayer: (feat, latlng) => L.circleMarker(latlng, {
-        radius: 5, color: def.color, fillColor: def.color, fillOpacity: 0.8, weight: 1.5
+        radius: 8,
+        color: def.color,
+        fillColor: def.color,
+        fillOpacity: 0.85,
+        weight: 2,
       }),
       onEachFeature: (feat, lyr) => {
         const p = feat.properties;
@@ -526,11 +545,18 @@ async function loadWFSLayer(def, bbox) {
       }
     });
 
-    // Add to map only if this layer is currently visible
-    if (layerVisible[def.id]) {
-      layer.addTo(map);
-      if (parcelLayer) parcelLayer.bringToFront();
+    // Data arrived → auto-enable this layer
+    layerVisible[def.id] = true;
+    const row2 = document.getElementById('layer-row-' + def.id);
+    if (row2) {
+      row2.classList.remove('off');
+      const eye2 = row2.querySelector('.layer-eye');
+      if (eye2) eye2.textContent = '👁';
     }
+
+    // Add to map
+    layer.addTo(map);
+    if (parcelLayer) parcelLayer.bringToFront();
     wfsLayerMap[def.id] = layer;
     updateBadge(def.id, 'ok', features.length + ' Obj.');
 
@@ -625,10 +651,11 @@ function buildPanel(lv95ring, area, perim) {
       const row = document.createElement('div');
       row.className = 'layer-row' + (layerVisible[def.id] ? '' : ' off');
       row.id = 'layer-row-' + def.id;
-      row.innerHTML = `<span class="layer-eye">${layerVisible[def.id] ? '👁' : '🚫'}</span>
+      row.innerHTML = `<span class="layer-eye">⏳</span>
         <div class="layer-dot" style="background:${def.color}"></div>
         <span class="layer-name">${def.name}</span>
         <span class="layer-badge lb-loading" id="wfs-badge-${def.id}">Wartet…</span>`;
+      row.classList.add('off');
       row.addEventListener('click', () => toggleLayerVisibility(def.id));
       wc.appendChild(row);
     });
