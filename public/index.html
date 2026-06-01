@@ -2,56 +2,708 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>ParcelIQ WFS Proxy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ParcelIQ · Polygon Viewer</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
-  body { font-family: monospace; background: #1a2332; color: #c9a84c; padding: 40px; }
-  h1 { color: white; }
-  .endpoint { background: #2c3e55; padding: 12px; border-radius: 8px; margin: 8px 0; }
-  a { color: #c9a84c; }
-  input { width: 100%; padding: 8px; margin: 8px 0; background: #2c3e55; color: white; border: 1px solid #c9a84c; border-radius: 4px; }
-  button { padding: 10px 20px; background: #c9a84c; color: #1a2332; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-  pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; color: #81c784; font-size: 12px; max-height: 400px; overflow-y: auto; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f6f9; color: #1a2332; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Header */
+header { background: #1a2332; color: white; padding: 10px 18px; display: flex; align-items: center; gap: 14px; flex-shrink: 0; z-index: 100; }
+.logo { font-size: 17px; font-weight: 700; white-space: nowrap; }
+.logo span { color: #c9a84c; }
+.search-wrap { flex: 1; max-width: 420px; position: relative; }
+.search-row { display: flex; gap: 6px; }
+.sinput { flex: 1; padding: 8px 12px; border-radius: 7px; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.1); color: white; font-size: 13px; outline: none; }
+.sinput::placeholder { color: rgba(255,255,255,.45); }
+.sinput:focus { border-color: #c9a84c; }
+.sbtn { padding: 8px 14px; background: #c9a84c; color: white; border: none; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.sbtn:hover { background: #b8943d; }
+.sbtn:disabled { background: #555; cursor: not-allowed; }
+.ac-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: white; border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.2); z-index: 9999; max-height: 200px; overflow-y: auto; display: none; }
+.ac-item { padding: 9px 13px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f5f5f5; color: #1a2332; }
+.ac-item:hover { background: #fdf8ee; }
+.ac-main { font-weight: 600; }
+.ac-sub { font-size: 11px; color: #999; margin-top: 1px; }
+.pill { margin-left: auto; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 700; background: rgba(255,255,255,.08); color: #8899aa; white-space: nowrap; }
+.pill.ok { background: rgba(201,168,76,.2); color: #c9a84c; }
+
+/* Toolbar */
+.toolbar { background: white; border-bottom: 1px solid #e0e6ed; padding: 7px 14px; display: flex; gap: 7px; align-items: center; flex-shrink: 0; flex-wrap: wrap; }
+.sep { width: 1px; height: 20px; background: #e0e6ed; }
+.tb { padding: 5px 11px; border-radius: 6px; border: 1.5px solid #e0e6ed; background: white; color: #1a2332; font-size: 12px; font-weight: 700; cursor: pointer; }
+.tb:hover { border-color: #c9a84c; }
+.tb.on { border-color: #c9a84c; background: #fdf8ee; color: #b8943d; }
+.tb-gold { background: #c9a84c; color: white; border-color: #c9a84c; }
+.tb-gold:hover { background: #b8943d; }
+.tb-dark { background: #1a2332; color: white; border-color: #1a2332; }
+
+/* Layout */
+.layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+#map { flex: 1; z-index: 1; }
+
+/* Panel */
+.panel { width: 310px; background: white; border-left: 1px solid #e0e6ed; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; transition: width .2s; }
+.panel.closed { width: 0; }
+.ph { padding: 10px 13px; background: #1a2332; color: white; font-weight: 700; font-size: 12px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.ph button { background: none; border: none; color: #8899aa; cursor: pointer; font-size: 13px; }
+.pb { flex: 1; overflow-y: auto; padding: 12px; }
+.ic { background: #f8f9fa; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
+.it { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.sr { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
+.sr:last-child { border-bottom: none; }
+.sl { color: #888; }
+.sv { font-weight: 700; }
+.sv.gold { color: #c9a84c; font-size: 11px; }
+.ct { width: 100%; border-collapse: collapse; font-size: 11px; }
+.ct th { background: #1a2332; color: white; padding: 5px 7px; text-align: left; font-size: 10px; }
+.ct td { padding: 4px 7px; border-bottom: 1px solid #f5f5f5; font-family: monospace; }
+.ct tr:hover td { background: #fdf8ee; cursor: pointer; }
+.ct tr.hl td { background: #fff3cd; font-weight: 700; }
+
+/* WFS Layer toggles */
+.layer-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; }
+.layer-dot { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; border: 2px solid rgba(0,0,0,.2); }
+.layer-name { flex: 1; }
+.layer-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.lb-ok { background: #e8f5e9; color: #2e7d32; }
+.lb-loading { background: #e3f2fd; color: #1565c0; }
+.lb-err { background: #ffebee; color: #c62828; }
+.lb-none { background: #f5f5f5; color: #616161; }
+
+/* Potential card */
+.pot-card { background: linear-gradient(135deg, #1a2332, #2c3e55); color: white; border-radius: 10px; padding: 14px; margin-bottom: 8px; }
+.pot-title { font-size: 10px; color: #8899aa; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.pot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pot-stat .pl { font-size: 10px; color: #8899aa; }
+.pot-stat .pv { font-size: 16px; font-weight: 700; }
+.pv.gold { color: #c9a84c; }
+.pv.green { color: #81c784; }
+.pv.red { color: #e57373; }
+
+/* Upload modal */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 1000; display: none; align-items: center; justify-content: center; }
+.modal-bg.on { display: flex; }
+.modal { background: white; border-radius: 14px; padding: 24px; width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 16px; margin-bottom: 4px; }
+.modal .msub { font-size: 12px; color: #888; margin-bottom: 16px; }
+.fhint { background: #f0f4ff; border-radius: 8px; padding: 10px 12px; font-size: 11px; line-height: 1.8; margin-bottom: 14px; }
+.fhint code { background: #dde5ff; padding: 1px 4px; border-radius: 3px; }
+.paste-area { width: 100%; min-height: 100px; padding: 10px; border: 2px solid #e0e6ed; border-radius: 8px; font-size: 12px; font-family: monospace; resize: vertical; outline: none; }
+.paste-area:focus { border-color: #c9a84c; }
+.drop-zone { border: 2px dashed #c9a84c; border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; margin-top: 10px; }
+.drop-zone:hover { background: #fdf8ee; }
+.parse-preview { background: #1a2332; color: #c9a84c; border-radius: 8px; padding: 10px; font-size: 11px; font-family: monospace; margin-top: 8px; max-height: 100px; overflow-y: auto; display: none; }
+.parse-error { background: #ffebee; color: #c62828; border-radius: 8px; padding: 8px 12px; font-size: 12px; margin-top: 8px; display: none; }
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+.btn-primary { background: #c9a84c; color: white; border: none; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.btn-sec { background: white; color: #1a2332; border: 2px solid #e0e6ed; padding: 9px 20px; border-radius: 7px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* Overlay */
+.overlay { position: absolute; inset: 0; background: rgba(26,35,50,.65); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 500; color: white; }
+.overlay.on { display: flex; }
+.spin { width: 38px; height: 38px; border: 4px solid rgba(255,255,255,.2); border-top-color: #c9a84c; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 12px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.ot { font-size: 14px; font-weight: 600; }
+.os { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 4px; }
+
+.hint { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); background: rgba(26,35,50,.8); color: white; padding: 9px 18px; border-radius: 20px; font-size: 13px; z-index: 400; pointer-events: none; white-space: nowrap; }
+.sbar { background: #1a2332; color: #8899aa; padding: 4px 16px; font-size: 11px; display: flex; gap: 16px; flex-shrink: 0; flex-wrap: wrap; }
+
+/* Zone colours – LU Geoportal style */
+.zone-popup { font-size: 12px; min-width: 200px; }
+.zone-popup b { display: block; margin-bottom: 4px; font-size: 13px; }
+.zone-popup table { width: 100%; border-collapse: collapse; }
+.zone-popup td { padding: 2px 4px; border-bottom: 1px solid #f0f0f0; }
+.zone-popup td:first-child { color: #888; width: 55%; }
 </style>
 </head>
 <body>
-<h1>ParcelIQ WFS Proxy</h1>
-<p>Status: <span style="color:#81c784">✅ Online</span></p>
 
-<h2>Endpoints</h2>
-<div class="endpoint"><b>GET</b> /api/wfs?layer=zone&bbox=E_min,N_min,E_max,N_max</div>
-<div class="endpoint"><b>GET</b> /api/wfs?layer=gewaesser&bbox=...</div>
-<div class="endpoint"><b>GET</b> /api/wfs?layer=wald&bbox=...</div>
-<div class="endpoint"><b>GET</b> /api/wfs?layer=baulinien&bbox=...</div>
-<div class="endpoint"><b>GET</b> /api/wfs?layer=gewaesserraum_lu&bbox=...</div>
-<div class="endpoint"><b>GET</b> /api/health</div>
+<header>
+  <div class="logo">Parcel<span>IQ</span></div>
+  <div class="search-wrap">
+    <div class="search-row">
+      <input class="sinput" id="sinput" type="text" placeholder="Adresse suchen…" autocomplete="off">
+      <button class="sbtn" id="sbtn">🔍</button>
+    </div>
+    <div class="ac-list" id="ac"></div>
+  </div>
+  <div class="pill" id="pill">Keine Parzelle</div>
+</header>
 
-<h2>Test</h2>
-<select id="layer" style="padding:8px;background:#2c3e55;color:white;border:1px solid #c9a84c;border-radius:4px;width:100%;margin:8px 0">
-  <option value="zone">Zonenplan Grundnutzung</option>
-  <option value="gewaesser">Gewässerraum (Bund)</option>
-  <option value="wald">Wald</option>
-  <option value="baulinien">Baulinien</option>
-  <option value="gewaesserraum_lu">Gewässerraum LU</option>
-</select>
-<input id="bbox" value="2644500,1201000,2644800,1201400" placeholder="E_min,N_min,E_max,N_max (LV95)">
-<button onclick="test()">▶ Abfragen</button>
-<pre id="result">Ergebnis erscheint hier...</pre>
+<div class="toolbar">
+  <button class="tb tb-gold" onclick="openUpload()">📂 Koordinaten</button>
+  <div class="sep"></div>
+  <button class="tb on" id="bl-sat" onclick="setBase('sat')">🛰 Satellit</button>
+  <button class="tb" id="bl-topo" onclick="setBase('topo')">🗺 Karte</button>
+  <button class="tb" id="bl-cad" onclick="setBase('cad')">📐 Kataster</button>
+  <div class="sep"></div>
+  <button class="tb" id="btn-v" onclick="toggleV()">📍 Grenzpunkte</button>
+  <button class="tb" id="btn-l" onclick="toggleL()">🔢 Nummern</button>
+  <button class="tb on" id="btn-wfs" onclick="toggleWFS()">🗂 Zonenpläne</button>
+  <div class="sep"></div>
+  <button class="tb tb-gold" onclick="expGeoJSON()">📥 GeoJSON</button>
+  <button class="tb tb-dark" onclick="expWKT()">📐 WKT</button>
+  <button class="tb tb-dark" onclick="expCoords()">📋 Koordinaten</button>
+  <div class="sep"></div>
+  <button class="tb" onclick="togglePanel()">☰ Panel</button>
+</div>
+
+<div class="layout">
+  <div id="map">
+    <div class="overlay" id="overlay">
+      <div class="spin"></div>
+      <div class="ot" id="ot">Laden…</div>
+      <div class="os" id="os"></div>
+    </div>
+    <div class="hint" id="hint">🔍 Adresse eingeben oder 📂 Koordinaten importieren</div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="ph"><span>📊 Parzellen-Info</span><button onclick="togglePanel()">✕</button></div>
+    <div class="pb" id="pb">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:#888;text-align:center;padding:20px">
+        <div style="font-size:36px;margin-bottom:8px">🗺</div>
+        <div style="font-size:13px;font-weight:700;color:#1a2332;margin-bottom:4px">Keine Parzelle geladen</div>
+        <div style="font-size:12px">Adresse suchen oder Koordinaten importieren</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sbar">
+  <span id="sb-c">🖱 –</span>
+  <span id="sb-a">📐 –</span>
+  <span id="sb-p">📏 –</span>
+  <span id="sb-n">📍 –</span>
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>📂 Koordinaten importieren</h2>
+    <p class="msub">LV95-Koordinaten aus dem LU-Geoportal einfügen</p>
+    <div class="fhint">
+      <b>Formate (LV95):</b><br>
+      <code>2'644'653.430 / 1'201'219.629</code> – LU-Geoportal ✅<br>
+      <code>2644123.456;1212345.678</code> – E;N<br>
+      <code>1;2644123.456;1212345.678;450.0</code> – Nr;E;N;Z
+    </div>
+    <textarea class="paste-area" id="pasteCoords" rows="7" placeholder="Koordinaten hier einfügen..." oninput="previewParse()"></textarea>
+    <div class="parse-preview" id="parsePreview"></div>
+    <div class="parse-error" id="parseError"></div>
+    <div class="drop-zone" onclick="document.getElementById('fileIn').click()">
+      <input type="file" id="fileIn" accept=".txt,.csv,.xyz,.asc" style="display:none" onchange="onFile(event)">
+      📄 Datei hierher ziehen oder klicken (.txt .csv .xyz)
+    </div>
+    <label style="font-size:12px;display:flex;align-items:center;gap:8px;margin-top:10px">
+      <input type="checkbox" id="optClose" checked> Polygon automatisch schliessen
+    </label>
+    <div class="modal-actions">
+      <button class="btn-sec" onclick="closeModal()">Abbrechen</button>
+      <button class="btn-primary" id="importBtn" onclick="doImport()" disabled>▶ Importieren</button>
+    </div>
+  </div>
+</div>
 
 <script>
-async function test() {
-  const layer = document.getElementById('layer').value;
-  const bbox = document.getElementById('bbox').value;
-  document.getElementById('result').textContent = 'Laden...';
+// ── Proxy URL ─────────────────────────────────────────────────────────────────
+const PROXY = 'https://geoportal-luzern.vercel.app/api/wfs';
+
+// Zonentyp → Farbe (angelehnt ans LU Geoportal)
+const ZONE_COLORS = {
+  1000: '#ffff00', 1100: '#ffff00', 1200: '#ffd700', 1300: '#ffc0cb',
+  2000: '#ff8c00', 3000: '#98fb98', 4000: '#add8e6',
+  5000: '#d3d3d3', 5100: '#c0c0c0', 5500: '#808080',
+  6000: '#90ee90', 6300: '#d2b48c',
+  7000: '#87ceeb', 8000: '#228b22',
+};
+function zoneColor(code) {
+  const c = parseInt(code);
+  for (const [k, v] of Object.entries(ZONE_COLORS)) {
+    if (c >= parseInt(k) && c < parseInt(k) + 100) return v;
+  }
+  return '#cccccc';
+}
+
+// WFS Layer-Definition
+const WFS_LAYERS = [
+  // Raumplanung / Nutzungsplanung
+  { id: 'grundnutzung',        name: 'Grundnutzung',                   color: '#ff9800', fillOpacity: 0.35, group: 'Raumplanung' },
+  { id: 'ueberlagerung_fl',    name: 'Überlagerungen',                 color: '#e91e63', fillOpacity: 0.3,  group: 'Raumplanung' },
+  { id: 'baulinien',           name: 'Baulinien (Zonenplan)',          color: '#f44336', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'naturgefahren',       name: 'Naturgefahren (Zonenplan)',      color: '#9c27b0', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'gewaesserraum_zp',    name: 'Gewässerraum (Zonenplan)',       color: '#2196f3', fillOpacity: 0.3,  group: 'Raumplanung' },
+  { id: 'bebauungsplaene',     name: 'Bebauungspläne',                 color: '#ff5722', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'gestaltungsplaene',   name: 'Gestaltungspläne',               color: '#795548', fillOpacity: 0.2,  group: 'Raumplanung' },
+  { id: 'baulinien_sb',        name: 'Baulinien (Strassen/Gewässer)',  color: '#f44336', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'waldgrenzen',         name: 'Statische Waldgrenzen',          color: '#4caf50', fillOpacity: 0,    group: 'Raumplanung' },
+  { id: 'mobilitaetskonzepte', name: 'Mobilitätskonzepte',             color: '#607d8b', fillOpacity: 0.2,  group: 'Raumplanung' },
+  // Naturgefahren / Risiken
+  { id: 'gefahrenkarte',       name: 'Gefahrenkarte',                  color: '#b71c1c', fillOpacity: 0.35, group: 'Naturgefahren' },
+  { id: 'gefahrenhinweis',     name: 'Gefahrenhinweiskarte',           color: '#e53935', fillOpacity: 0.25, group: 'Naturgefahren' },
+  { id: 'oberflaechenabfluss', name: 'Oberflächenabfluss',             color: '#0288d1', fillOpacity: 0.3,  group: 'Naturgefahren' },
+  { id: 'bodenverschiebung',   name: 'Prüfperimeter Bodenverschiebung',color: '#ff6f00', fillOpacity: 0.25, group: 'Naturgefahren' },
+  { id: 'baugrundklassen',     name: 'Baugrundklassen',                color: '#8d6e63', fillOpacity: 0.25, group: 'Naturgefahren' },
+  // Wald / Natur
+  { id: 'einzelbaeume',        name: 'Einzelbäume',                    color: '#1b5e20', fillOpacity: 0.6,  group: 'Natur' },
+  // Energie
+  { id: 'erdwaerme',           name: 'Erdwärmenutzung',                color: '#ff6d00', fillOpacity: 0.3,  group: 'Energie' },
+  // Verkehr
+  { id: 'strassennetz',        name: 'Strassen- und Wegnetz',          color: '#546e7a', fillOpacity: 0,    group: 'Verkehr' },
+  { id: 'kantonsstrassen',     name: 'Kantonsstrassen',                color: '#37474f', fillOpacity: 0,    group: 'Verkehr' },
+  { id: 'fussgaengerstreifen', name: 'Fussgängerstreifen',             color: '#ffd600', fillOpacity: 0.5,  group: 'Verkehr' },
+  { id: 'oev_einzugsgebiete',  name: 'ÖV Haltestelleneinzugsgebiete', color: '#00838f', fillOpacity: 0.2,  group: 'Verkehr' },
+  // Gebäude / Anlagen
+  { id: 'denkmal',             name: 'Denkmal & Bauinventar',          color: '#6a1b9a', fillOpacity: 0.3,  group: 'Gebäude' },
+  { id: 'isos',                name: 'Ortsbilder (ISOS)',               color: '#4a148c', fillOpacity: 0.2,  group: 'Gebäude' },
+  // Sicherheit
+  { id: 'zivilschutz',         name: 'Schutzbauten Zivilschutz',       color: '#1565c0', fillOpacity: 0.4,  group: 'Sicherheit' },
+  // Umwelt
+  { id: 'kbs',                 name: 'Kataster belastete Standorte',   color: '#c62828', fillOpacity: 0.4,  group: 'Umwelt' },
+  { id: 'strassenlaerm',       name: 'Strassenlärmkataster',           color: '#e65100', fillOpacity: 0.3,  group: 'Umwelt' },
+];
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let map, baseTile, parcelLayer, vLayer, lLayer;
+let wfsLayerMap = {}; // id → Leaflet layer
+let geoWGS = null, geoLV95 = null;
+let showV = false, showL = false, showWFS = true;
+let selLoc = null, debTimer = null;
+let parsedCoords = null;
+
+const TILES = {
+  sat:  'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
+  topo: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+  cad:  'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swisstlm3d-karte-farbe/default/current/3857/{z}/{x}/{y}.png'
+};
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  map = L.map('map', { maxZoom: 18 }).setView([47.05, 8.3], 10);
+  baseTile = L.tileLayer(TILES.sat, { attribution: '© swisstopo', maxZoom: 18 }).addTo(map);
+  map.on('mousemove', e => {
+    document.getElementById('sb-c').textContent = `🖱 ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
+  });
+  map.on('click', e => loadAt(e.latlng.lat, e.latlng.lng, null));
+  const inp = document.getElementById('sinput');
+  inp.addEventListener('input', () => { selLoc = null; debounce(inp.value); });
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') search(); });
+  document.getElementById('sbtn').addEventListener('click', search);
+  document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) hideAC(); });
+});
+
+// ── Autocomplete ──────────────────────────────────────────────────────────────
+function debounce(v) { clearTimeout(debTimer); selLoc = null; if (v.length < 3) { hideAC(); return; } debTimer = setTimeout(() => fetchAC(v), 280); }
+async function fetchAC(q) {
   try {
-    const r = await fetch(`/api/wfs?layer=${layer}&bbox=${bbox}`);
-    const d = await r.json();
-    const n = d.features?.length ?? (d.results?.length ?? '?');
-    document.getElementById('result').textContent =
-      `✅ ${n} Objekte gefunden\n\n` + JSON.stringify(d, null, 2).substring(0, 3000);
+    const d = await jget('https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText=' + enc(q) + '&origins=address,parcel&limit=7&lang=de');
+    const ac = document.getElementById('ac');
+    if (!d.results?.length) { hideAC(); return; }
+    ac.innerHTML = '';
+    d.results.forEach(r => {
+      const a = r.attrs, l = strip(a.label), icon = a.origin === 'parcel' ? '🗂' : '📍';
+      const div = document.createElement('div'); div.className = 'ac-item';
+      div.innerHTML = '<div class="ac-main">' + icon + ' ' + l + '</div><div class="ac-sub">' + (a.detail || '') + '</div>';
+      div.addEventListener('click', () => { document.getElementById('sinput').value = l; selLoc = { lat: a.lat, lon: a.lon, label: l }; hideAC(); });
+      ac.appendChild(div);
+    });
+    ac.style.display = 'block';
+  } catch(e) { hideAC(); }
+}
+function hideAC() { document.getElementById('ac').style.display = 'none'; }
+
+async function search() {
+  const q = document.getElementById('sinput').value.trim(); if (!q) return;
+  document.getElementById('sbtn').disabled = true;
+  let lat, lon, label;
+  if (selLoc) { ({ lat, lon, label } = selLoc); }
+  else {
+    setOv(true, 'Adresse suchen…', '');
+    const f = await geocode(q);
+    if (!f) { setOv(false); document.getElementById('sbtn').disabled = false; alert('Adresse nicht gefunden.'); return; }
+    ({ lat, lon, label } = f);
+  }
+  await loadAt(lat, lon, label);
+  document.getElementById('sbtn').disabled = false;
+}
+
+// ── Load Parcel ───────────────────────────────────────────────────────────────
+async function loadAt(lat, lon, label) {
+  const lv = wgsToLV95(lat, lon);
+  const ext = `${lv.E-150},${lv.N-150},${lv.E+150},${lv.N+150}`;
+  setOv(true, 'Parzelle laden…', ''); hideHint();
+  try {
+    const url = 'https://api3.geo.admin.ch/rest/services/api/MapServer/identify' +
+      '?geometry=' + lv.E + ',' + lv.N + '&geometryType=esriGeometryPoint' +
+      '&layers=all:ch.kantone.cadastralwebmap-farbe' +
+      '&tolerance=0&mapExtent=' + ext + '&imageDisplay=400,400,96' +
+      '&returnGeometry=true&geometryFormat=geojson&lang=de&sr=2056';
+    const d = await jget(url);
+    if (!d.results?.length) { setOv(false); alert('Keine Parzelle gefunden.'); return; }
+    const feat = d.results[0];
+    const attrs = feat.attributes || feat.properties || {};
+    geoLV95 = feat.geometry;
+    geoWGS = { type: 'Feature', properties: { egrid: attrs.egris_egrid || attrs.egrid, parcelNum: attrs.number, kanton: attrs.ak, label: label || '' }, geometry: normGeom(feat.geometry) };
+    setOv(false);
+    await draw();
+    setPill('ok', 'Parzelle ' + (attrs.number || '') + ' ' + (attrs.ak || ''));
+  } catch(e) { setOv(false); alert('Fehler: ' + e.message); }
+}
+
+// ── Import ────────────────────────────────────────────────────────────────────
+function openUpload() { document.getElementById('modal').classList.add('on'); }
+function closeModal() { document.getElementById('modal').classList.remove('on'); }
+function onFile(e) { const f = e.target.files[0]; if (f) { const r = new FileReader(); r.onload = ev => { document.getElementById('pasteCoords').value = ev.target.result; previewParse(); }; r.readAsText(f); } }
+
+function cleanNum(s) { return s.replace(/'/g,'').replace(/\u2019/g,'').replace(/\s/g,''); }
+function parseCoords(txt) {
+  const lines = txt.split(/\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  if (!lines.length) return { error: 'Keine Daten' };
+  const coords = []; let fmt = 'unbekannt';
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    let parts;
+    if (line.includes('/')) { parts = line.split('/').map(p => cleanNum(p.trim())); fmt = 'LU-Geoportal'; }
+    else if (line.includes(';')) { parts = line.split(';').map(p => cleanNum(p.trim())); }
+    else if (line.includes(',')) { parts = line.split(',').map(p => cleanNum(p.trim())); }
+    else { parts = line.split(/\s+/).map(p => cleanNum(p)); }
+    const nums = parts.map(p => p.replace(',','.')).filter(p => /^-?\d+(\.\d+)?$/.test(p)).map(Number);
+    let E, N;
+    if (nums.length >= 4) { E = nums[1]; N = nums[2]; }
+    else if (nums.length === 3) { E = nums[1]; N = nums[2]; }
+    else if (nums.length === 2) { E = nums[0]; N = nums[1]; }
+    else continue;
+    if (E > 2400000 && E < 2900000 && N > 1000000 && N < 1400000) { coords.push({ E, N }); }
+    else if (N > 2400000 && N < 2900000 && E > 1000000 && E < 1400000) { coords.push({ E: N, N: E }); }
+    else return { error: `Zeile ${i+1}: Ausserhalb LV95 (E=${E}, N=${N})` };
+  }
+  if (!coords.length) return { error: 'Keine gültigen LV95-Koordinaten' };
+  return { coords, fmt };
+}
+
+function previewParse() {
+  const txt = document.getElementById('pasteCoords').value.trim();
+  const prev = document.getElementById('parsePreview'), err = document.getElementById('parseError'), btn = document.getElementById('importBtn');
+  prev.style.display = 'none'; err.style.display = 'none'; btn.disabled = true; parsedCoords = null;
+  if (!txt) return;
+  const r = parseCoords(txt);
+  if (r.error) { err.textContent = '❌ ' + r.error; err.style.display = 'block'; return; }
+  if (r.coords.length < 3) { err.textContent = '❌ Mind. 3 Punkte nötig (' + r.coords.length + ' erkannt)'; err.style.display = 'block'; return; }
+  parsedCoords = r.coords;
+  prev.style.display = 'block';
+  prev.textContent = '✅ ' + r.coords.length + ' Punkte · Format: ' + r.fmt + '\n' + r.coords.slice(0,3).map((c,i) => (i+1)+': E='+c.E.toFixed(3)+' N='+c.N.toFixed(3)).join('\n') + (r.coords.length > 3 ? '\n...' : '');
+  btn.disabled = false;
+}
+
+async function doImport() {
+  if (!parsedCoords || parsedCoords.length < 3) return;
+  closeModal();
+  let coords = [...parsedCoords];
+  if (document.getElementById('optClose').checked) {
+    const f = coords[0], l = coords[coords.length-1];
+    if (f.E !== l.E || f.N !== l.N) coords.push(f);
+  }
+  geoLV95 = { type: 'Polygon', coordinates: [coords.map(c => [c.E, c.N])] };
+  const wgsCoords = coords.map(c => { const w = lv95ToWGS(c.E, c.N); return [w.lon, w.lat]; });
+  geoWGS = { type: 'Feature', properties: { source: 'Import', label: 'Importierte Parzelle' }, geometry: { type: 'Polygon', coordinates: [wgsCoords] } };
+  hideHint();
+  setOv(true, 'Zonenpläne laden…', '');
+  await draw();
+  setPill('ok', 'Import · ' + parsedCoords.length + ' Pkt.');
+  setOv(false);
+}
+
+// ── Draw + WFS ────────────────────────────────────────────────────────────────
+async function draw() {
+  // Clear
+  [parcelLayer, vLayer, lLayer].forEach(l => { if (l) map.removeLayer(l); });
+  Object.values(wfsLayerMap).forEach(l => { if (l) map.removeLayer(l); });
+  wfsLayerMap = {}; parcelLayer = vLayer = lLayer = null;
+  showV = showL = false;
+  ['btn-v','btn-l'].forEach(id => document.getElementById(id).classList.remove('on'));
+
+  // Parcel polygon
+  parcelLayer = L.geoJSON(geoWGS, { style: { color: '#c9a84c', weight: 3, fillColor: '#c9a84c', fillOpacity: 0.1 } }).addTo(map);
+  map.fitBounds(parcelLayer.getBounds(), { padding: [30, 30] });
+
+  const ring = getLV95Ring(), wgsRing = getWGSRing();
+  const area = calcAreaLV95(ring), perim = calcPerimLV95(ring);
+  document.getElementById('sb-a').textContent = '📐 ' + fmtArea(area);
+  document.getElementById('sb-p').textContent = '📏 ' + perim.toFixed(1) + ' m';
+  document.getElementById('sb-n').textContent = '📍 ' + ring.length + ' Grenzpunkte';
+
+  buildPanel(ring, area, perim);
+  setOv(false);
+
+  // Load WFS in background
+  if (showWFS) loadAllWFS();
+}
+
+// ── WFS Loading ───────────────────────────────────────────────────────────────
+async function loadAllWFS() {
+  if (!geoWGS || !parcelLayer) return;
+  const b = parcelLayer.getBounds();
+  const pad = 100; // metre buffer
+  const lv = wgsToLV95(b.getCenter().lat, b.getCenter().lng);
+  const bbox = `${lv.E - pad},${lv.N - pad},${lv.E + pad},${lv.N + pad}`;
+
+  // Update badges
+  WFS_LAYERS.forEach(def => updateBadge(def.id, 'loading', 'Lädt…'));
+
+  await Promise.all(WFS_LAYERS.map(def => loadWFSLayer(def, bbox)));
+  updatePotential();
+}
+
+async function loadWFSLayer(def, bbox) {
+  try {
+    const url = PROXY + '?layer=' + def.id + '&bbox=' + bbox;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const features = data.features || (data.results ? data.results.map(r => ({ type: 'Feature', properties: r.attributes || {}, geometry: normGeom(r.geometry) })) : []);
+
+    if (!features.length) { updateBadge(def.id, 'none', 'Keine Daten'); return; }
+
+    const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
+      style: feat => {
+        // Grundnutzung: Farbe nach Zonentyp
+        if (def.id === 'grundnutzung') {
+          const code = feat.properties['Zonentyp_Planungs-_und_Baugesetz'] || feat.properties.Zonentyp_Kanton;
+          return { color: '#666', weight: 1, fillColor: zoneColor(code), fillOpacity: 0.45 };
+        }
+        return { color: def.color, weight: def.id === 'baulinien' ? 3 : 1.5, fillColor: def.color, fillOpacity: def.fillOpacity, dashArray: def.id === 'baulinien' ? '6,4' : null };
+      },
+      onEachFeature: (feat, lyr) => {
+        const p = feat.properties;
+        if (def.id === 'grundnutzung') {
+          const name = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          const uz = p['Überbauungsziffer_1__maximal_'];
+          const gh = p['Gesamthöhe__maximal___m_'];
+          const fh = p['Fassadenhöhe__maximal___m_'];
+          const gl = p['Gebäudelänge__m_'];
+          const art = p['Artikel_im_BZR'];
+          lyr.bindPopup(`<div class="zone-popup">
+            <b>${name}</b>
+            <table>
+              ${uz != null ? '<tr><td>ÜZ max.</td><td><b>' + uz + '</b></td></tr>' : ''}
+              ${gh != null ? '<tr><td>Gesamthöhe max.</td><td><b>' + gh + ' m</b></td></tr>' : ''}
+              ${fh != null ? '<tr><td>Fassadenhöhe max.</td><td><b>' + fh + ' m</b></td></tr>' : ''}
+              ${gl != null ? '<tr><td>Gebäudelänge max.</td><td><b>' + gl + ' m</b></td></tr>' : ''}
+              ${art ? '<tr><td>BZR Artikel</td><td><b>' + art + '</b></td></tr>' : ''}
+            </table>
+          </div>`);
+        } else {
+          const info = Object.entries(p).filter(([k,v]) => v && !['OBJECTID','GmlID'].includes(k)).slice(0,5).map(([k,v]) => `<tr><td>${k}</td><td><b>${v}</b></td></tr>`).join('');
+          if (info) lyr.bindPopup('<div class="zone-popup"><table>' + info + '</table></div>');
+        }
+      }
+    });
+
+    if (showWFS) layer.addTo(map);
+    // Bring parcel to front
+    if (parcelLayer) parcelLayer.bringToFront();
+    wfsLayerMap[def.id] = layer;
+    updateBadge(def.id, 'ok', features.length + ' Obj.');
+    // Update panel badge
+    const el = document.getElementById('wfs-badge-' + def.id);
+    if (el) { el.className = 'layer-badge lb-ok'; el.textContent = features.length + ' Obj.'; }
   } catch(e) {
-    document.getElementById('result').textContent = '❌ Fehler: ' + e.message;
+    updateBadge(def.id, 'err', 'Fehler');
+    console.warn('WFS', def.id, e);
   }
 }
+
+function updateBadge(id, cls, txt) {
+  const el = document.getElementById('wfs-badge-' + id);
+  if (el) { el.className = 'layer-badge lb-' + cls; el.textContent = txt; }
+}
+
+// ── Potenzial ─────────────────────────────────────────────────────────────────
+function updatePotential() {
+  const layer = wfsLayerMap['grundnutzung'];
+  if (!layer) return;
+  const parcelArea = calcAreaLV95(getLV95Ring());
+  let zoneInfo = '–', uz = null, gh = null, fh = null, gl = null;
+
+  // Find zone that intersects parcel centroid
+  const bounds = parcelLayer ? parcelLayer.getBounds() : null;
+  if (bounds) {
+    const center = bounds.getCenter();
+    layer.eachLayer(l => {
+      if (uz !== null) return;
+      try {
+        const b = l.getBounds();
+        if (b.contains(center)) {
+          const p = l.feature.properties;
+          zoneInfo = p['Bezeichnung_Zonentyp_Gemeinde'] || '–';
+          uz = p['Überbauungsziffer_1__maximal_'];
+          gh = p['Gesamthöhe__maximal___m_'];
+          fh = p['Fassadenhöhe__maximal___m_'];
+          gl = p['Gebäudelänge__m_'];
+        }
+      } catch(e) {}
+    });
+  }
+
+  const waldPresent = (wfsLayerMap['waldgrenzen'] && Object.keys(wfsLayerMap['waldgrenzen']._layers || {}).length > 0) ||
+                      (wfsLayerMap['waldgrenzen_zp'] && Object.keys(wfsLayerMap['waldgrenzen_zp']._layers || {}).length > 0);
+  let nettArea = parcelArea;
+  if (waldPresent) nettArea = Math.max(0, nettArea - parcelArea * 0.1);
+  const bgf = uz ? nettArea * uz : null;
+  const whg = bgf ? Math.floor(bgf / 90) : null;
+
+  const pc = document.getElementById('potential-card');
+  if (!pc) return;
+  pc.innerHTML = `
+    <div class="pot-title">⚡ Baupotenzial (Schätzung)</div>
+    <div class="pot-grid">
+      <div class="pot-stat"><div class="pl">Zone</div><div class="pv gold" style="font-size:12px">${zoneInfo}</div></div>
+      <div class="pot-stat"><div class="pl">Parzellenfläche</div><div class="pv">${fmtArea(parcelArea)}</div></div>
+      ${uz != null ? `<div class="pot-stat"><div class="pl">ÜZ max.</div><div class="pv">${uz}</div></div>` : ''}
+      ${gh != null ? `<div class="pot-stat"><div class="pl">Gesamthöhe max.</div><div class="pv">${gh} m</div></div>` : ''}
+      ${bgf != null ? `<div class="pot-stat"><div class="pl">Max. BGF</div><div class="pv green">${fmtArea(bgf)}</div></div>` : ''}
+      ${whg != null ? `<div class="pot-stat"><div class="pl">Ca. Wohnungen</div><div class="pv gold">${whg} Whg</div></div>` : ''}
+      ${waldPresent ? `<div class="pot-stat"><div class="pl">Waldabstand</div><div class="pv red">⚠️ 10m</div></div>` : ''}
+    </div>
+    <div style="font-size:10px;color:#8899aa;margin-top:8px">⚠️ Schätzung – kein Ersatz für Fachberatung</div>`;
+}
+
+// ── Panel ─────────────────────────────────────────────────────────────────────
+function buildPanel(lv95ring, area, perim) {
+  const pb = document.getElementById('pb'); pb.innerHTML = '';
+  const p = geoWGS?.properties || {};
+
+  // Geometry
+  const gc = mk('📐 Geometrie', [['Fläche', fmtArea(area)], ['Umfang', perim.toFixed(1)+' m'], ['Grenzpunkte', lv95ring.length]]);
+  pb.appendChild(gc);
+
+  // Parcel info
+  const rows = [];
+  if (p.parcelNum) rows.push(['Parzelle Nr.', p.parcelNum]);
+  if (p.egrid) rows.push(['EGRID', p.egrid]);
+  if (p.kanton) rows.push(['Kanton', p.kanton]);
+  if (rows.length) pb.appendChild(mk('🗂 Parzelle', rows));
+
+  // WFS Layers – grouped by category
+  const wc = document.createElement('div'); wc.className = 'ic';
+  wc.innerHTML = '<div class="it">🗂 Geodaten LU (' + WFS_LAYERS.length + ' Layer)</div>';
+  const groups = [...new Set(WFS_LAYERS.map(d => d.group))];
+  groups.forEach(grp => {
+    const grpDiv = document.createElement('div');
+    grpDiv.style.cssText = 'font-size:10px;font-weight:700;color:#1a2332;margin:6px 0 2px;text-transform:uppercase;letter-spacing:.4px;';
+    grpDiv.textContent = grp;
+    wc.appendChild(grpDiv);
+    WFS_LAYERS.filter(d => d.group === grp).forEach(def => {
+      const row = document.createElement('div'); row.className = 'layer-row';
+      row.innerHTML = `<div class="layer-dot" style="background:${def.color}"></div>
+        <span class="layer-name">${def.name}</span>
+        <span class="layer-badge lb-loading" id="wfs-badge-${def.id}">Wartet…</span>`;
+      wc.appendChild(row);
+    });
+  });
+  pb.appendChild(wc);
+
+  // Potential placeholder
+  const pd = document.createElement('div'); pd.className = 'pot-card'; pd.id = 'potential-card';
+  pd.innerHTML = '<div class="pot-title">⚡ Baupotenzial</div><div style="font-size:12px;color:#8899aa">Zonenpläne werden geladen…</div>';
+  pb.appendChild(pd);
+
+  // Bounding box
+  if (parcelLayer) {
+    const b = parcelLayer.getBounds();
+    pb.appendChild(mk('📦 Bounding Box', [['Nord', b.getNorth().toFixed(6)+'°'], ['Süd', b.getSouth().toFixed(6)+'°'], ['Ost', b.getEast().toFixed(6)+'°'], ['West', b.getWest().toFixed(6)+'°']]));
+  }
+
+  // Coordinates table
+  const cc = document.createElement('div'); cc.className = 'ic';
+  cc.innerHTML = '<div class="it">📍 Grenzpunkte (' + lv95ring.length + ') · LV95</div>';
+  const tbl = document.createElement('table'); tbl.className = 'ct';
+  tbl.innerHTML = '<thead><tr><th>#</th><th>E (Ost)</th><th>N (Nord)</th></tr></thead>';
+  const tb = document.createElement('tbody');
+  lv95ring.forEach((c, i) => {
+    const tr = document.createElement('tr'); tr.id = 'cr-' + i;
+    tr.innerHTML = '<td style="color:#aaa">' + (i+1) + '</td><td>' + c[0].toFixed(3) + '</td><td>' + c[1].toFixed(3) + '</td>';
+    tr.addEventListener('click', () => flyTo(i));
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb); cc.appendChild(tbl);
+  pb.appendChild(cc);
+}
+
+function mk(title, rows) {
+  const div = document.createElement('div'); div.className = 'ic';
+  div.innerHTML = '<div class="it">' + title + '</div>';
+  rows.forEach(([l, v]) => { const r = document.createElement('div'); r.className = 'sr'; r.innerHTML = '<span class="sl">' + l + '</span><span class="sv">' + v + '</span>'; div.appendChild(r); });
+  return div;
+}
+
+function flyTo(idx) {
+  const c = getLV95Ring()[idx]; if (!c) return;
+  const w = lv95ToWGS(c[0], c[1]);
+  map.flyTo([w.lat, w.lon], 18, { duration: .7 });
+  document.querySelectorAll('.ct tr').forEach(r => r.classList.remove('hl'));
+  const row = document.getElementById('cr-' + idx);
+  if (row) { row.classList.add('hl'); row.scrollIntoView({ block: 'nearest' }); }
+}
+
+// ── Toggles ───────────────────────────────────────────────────────────────────
+function toggleV() {
+  showV = !showV; document.getElementById('btn-v').classList.toggle('on', showV);
+  if (!geoWGS) return;
+  if (showV) { const g = L.layerGroup(); getWGSRing().forEach(c => L.circleMarker([c[1],c[0]], {radius:5,color:'#1a2332',fillColor:'#c9a84c',fillOpacity:1,weight:2}).addTo(g)); vLayer = g; map.addLayer(g); }
+  else { if (vLayer) { map.removeLayer(vLayer); vLayer = null; } }
+}
+function toggleL() {
+  showL = !showL; document.getElementById('btn-l').classList.toggle('on', showL);
+  if (!geoWGS) return;
+  if (showL) { const g = L.layerGroup(); getWGSRing().forEach((c,i) => L.marker([c[1],c[0]], {icon:L.divIcon({className:'',html:'<div style="background:#1a2332;color:white;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700">'+(i+1)+'</div>',iconAnchor:[-3,8]})}).addTo(g)); lLayer = g; map.addLayer(g); }
+  else { if (lLayer) { map.removeLayer(lLayer); lLayer = null; } }
+}
+function toggleWFS() {
+  showWFS = !showWFS; document.getElementById('btn-wfs').classList.toggle('on', showWFS);
+  Object.values(wfsLayerMap).forEach(l => { if (!l) return; if (showWFS) { if (!map.hasLayer(l)) map.addLayer(l); } else map.removeLayer(l); });
+  if (parcelLayer) parcelLayer.bringToFront();
+}
+function togglePanel() { document.getElementById('panel').classList.toggle('closed'); }
+function setBase(m) {
+  ['sat','topo','cad'].forEach(x => document.getElementById('bl-'+x).classList.toggle('on', x===m));
+  if (baseTile) map.removeLayer(baseTile);
+  baseTile = L.tileLayer(TILES[m], { attribution: '© swisstopo', maxZoom: 18 }).addTo(map);
+  baseTile.bringToBack();
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function expGeoJSON() { if (!geoWGS) return; dl(JSON.stringify(geoWGS,null,2),'parzelle.geojson','application/json'); }
+function expWKT() { if (!geoLV95) return; const r=getLV95Ring(); dl('POLYGON((' + r.map(c=>c[0]+' '+c[1]).join(',') + '))','parzelle_lv95.wkt','text/plain'); }
+function expCoords() { if (!geoLV95) return; const r=getLV95Ring(); navigator.clipboard.writeText('Nr\tE\tN\n'+r.map((c,i)=>(i+1)+'\t'+c[0].toFixed(3)+'\t'+c[1].toFixed(3)).join('\n')).then(()=>alert(r.length+' LV95-Koordinaten kopiert')); }
+function dl(c,n,m) { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([c],{type:m})); a.download=n; a.click(); }
+
+// ── Geometry ──────────────────────────────────────────────────────────────────
+function getLV95Ring() { if (!geoLV95) return []; const c = geoLV95.type==='Polygon'?geoLV95.coordinates[0]:geoLV95.coordinates[0][0]; return c.slice(0,-1); }
+function getWGSRing() { if (!geoWGS) return []; const c = geoWGS.geometry.type==='Polygon'?geoWGS.geometry.coordinates[0]:geoWGS.geometry.coordinates[0][0]; return c.slice(0,-1); }
+function calcAreaLV95(ring) { let a=0; const n=ring.length; for(let i=0;i<n;i++){const j=(i+1)%n;a+=ring[i][0]*ring[j][1]-ring[j][0]*ring[i][1];} return Math.abs(a/2); }
+function calcPerimLV95(ring) { let p=0; const n=ring.length; for(let i=0;i<n;i++){const j=(i+1)%n;const dx=ring[j][0]-ring[i][0],dy=ring[j][1]-ring[i][1];p+=Math.sqrt(dx*dx+dy*dy);} return p; }
+function fmtArea(m2) { return m2>=10000?(m2/10000).toFixed(4)+' ha':m2.toFixed(2)+' m²'; }
+
+// ── Coords ────────────────────────────────────────────────────────────────────
+function wgsToLV95(lat,lon){const la=(lat*3600-169028.66)/10000,lo=(lon*3600-26782.5)/10000;return{E:Math.round(2600072.37+211455.93*lo-10938.51*lo*la-0.36*lo*la*la-44.54*lo*lo*lo),N:Math.round(1200147.07+308807.95*la+3745.25*lo*lo+76.63*la*la-194.56*lo*lo*la+119.79*la*la*la)};}
+function lv95ToWGS(E,N){const e=(E-2600000)/1e6,n=(N-1200000)/1e6,lon=2.6779094+4.728982*e+0.791484*e*n+0.1306*e*n*n-0.0436*e*e*e,lat=16.9023892+3.238272*n-0.270978*e*e-0.002528*n*n-0.0447*e*e*n-0.014*n*n*n;return{lat:lat*100/36,lon:lon*100/36};}
+function isLV95(c){return c[0]>2400000&&c[0]<2900000&&c[1]>1000000&&c[1]<1400000;}
+function normCoord(c){if(isLV95(c)){const w=lv95ToWGS(c[0],c[1]);return[w.lon,w.lat];}return c;}
+function normRing(r){return r.map(normCoord);}
+function normGeom(geo){if(geo.type==='Polygon')return{...geo,coordinates:geo.coordinates.map(normRing)};if(geo.type==='MultiPolygon')return{...geo,coordinates:geo.coordinates.map(p=>p.map(normRing))};return geo;}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function setOv(on,txt,sub){document.getElementById('overlay').classList.toggle('on',on);if(txt)document.getElementById('ot').textContent=txt;if(sub!==undefined)document.getElementById('os').textContent=sub;}
+function setPill(cls,txt){const p=document.getElementById('pill');p.className='pill'+(cls?' '+cls:'');p.textContent=txt;}
+function hideHint(){const h=document.getElementById('hint');h.style.opacity='0';setTimeout(()=>h.style.display='none',300);}
+async function geocode(q){const d=await jget('https://api3.geo.admin.ch/rest/services/api/SearchServer?type=locations&searchText='+enc(q)+'&origins=address&limit=1&lang=de');if(!d.results?.length)return null;const a=d.results[0].attrs;return{lat:a.lat,lon:a.lon,label:strip(a.label)};}
+async function jget(url){const r=await fetch(url);if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}
+function enc(s){return encodeURIComponent(s);}
+function strip(s){return String(s).replace(/<[^>]+>/g,'');}
 </script>
 </body>
 </html>
