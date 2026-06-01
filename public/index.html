@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>ParcelIQ WFS Proxy</title>
+<style>
+  body { font-family: monospace; background: #1a2332; color: #c9a84c; padding: 40px; }
+  h1 { color: white; }
+  .endpoint { background: #2c3e55; padding: 12px; border-radius: 8px; margin: 8px 0; }
+  a { color: #c9a84c; }
+  input { width: 100%; padding: 8px; margin: 8px 0; background: #2c3e55; color: white; border: 1px solid #c9a84c; border-radius: 4px; }
+  button { padding: 10px 20px; background: #c9a84c; color: #1a2332; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  pre { background: #0d1117; padding: 16px; border-radius: 8px; overflow-x: auto; color: #81c784; font-size: 12px; max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<h1>ParcelIQ WFS Proxy</h1>
+<p>Status: <span style="color:#81c784">✅ Online</span></p>
+
+<h2>Endpoints</h2>
+<div class="endpoint"><b>GET</b> /api/wfs?layer=zone&bbox=E_min,N_min,E_max,N_max</div>
+<div class="endpoint"><b>GET</b> /api/wfs?layer=gewaesser&bbox=...</div>
+<div class="endpoint"><b>GET</b> /api/wfs?layer=wald&bbox=...</div>
+<div class="endpoint"><b>GET</b> /api/wfs?layer=baulinien&bbox=...</div>
+<div class="endpoint"><b>GET</b> /api/wfs?layer=gewaesserraum_lu&bbox=...</div>
+<div class="endpoint"><b>GET</b> /api/health</div>
+
+<h2>Test</h2>
+<select id="layer" style="padding:8px;background:#2c3e55;color:white;border:1px solid #c9a84c;border-radius:4px;width:100%;margin:8px 0">
+  <option value="zone">Zonenplan Grundnutzung</option>
+  <option value="gewaesser">Gewässerraum (Bund)</option>
+  <option value="wald">Wald</option>
+  <option value="baulinien">Baulinien</option>
+  <option value="gewaesserraum_lu">Gewässerraum LU</option>
+</select>
+<input id="bbox" value="2644500,1201000,2644800,1201400" placeholder="E_min,N_min,E_max,N_max (LV95)">
+<button onclick="test()">▶ Abfragen</button>
+<pre id="result">Ergebnis erscheint hier...</pre>
+
+<script>
+async function test() {
+  const layer = document.getElementById('layer').value;
+  const bbox = document.getElementById('bbox').value;
+  document.getElementById('result').textContent = 'Laden...';
+  try {
+    const r = await fetch(`/api/wfs?layer=${layer}&bbox=${bbox}`);
+    const d = await r.json();
+    const n = d.features?.length ?? (d.results?.length ?? '?');
+    document.getElementById('result').textContent =
+      `✅ ${n} Objekte gefunden\n\n` + JSON.stringify(d, null, 2).substring(0, 3000);
+  } catch(e) {
+    document.getElementById('result').textContent = '❌ Fehler: ' + e.message;
+  }
+}
+</script>
+</body>
+</html>
