@@ -306,6 +306,14 @@ const TILES = {
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('load', () => {
   map = L.map('map', { maxZoom: 18 }).setView([47.05, 8.3], 10);
+
+  // Eigene Panes: WFS-Layer unter Parzelle, aber Mouse-Events auf WFS
+  map.createPane('wfsPane');
+  map.getPane('wfsPane').style.zIndex = 400;
+  map.createPane('parcelPane');
+  map.getPane('parcelPane').style.zIndex = 450;
+  map.getPane('parcelPane').style.pointerEvents = 'none'; // Parzelle blockt keine Events
+
   baseTile = L.tileLayer(TILES.sat, { attribution: '© swisstopo', maxZoom: 18 }).addTo(map);
   map.on('mousemove', e => {
     document.getElementById('sb-c').textContent = `🖱 ${e.latlng.lat.toFixed(6)}, ${e.latlng.lng.toFixed(6)}`;
@@ -449,7 +457,7 @@ async function draw() {
   ['btn-v','btn-l'].forEach(id => document.getElementById(id).classList.remove('on'));
 
   // Parcel polygon
-  parcelLayer = L.geoJSON(geoWGS, { style: { color: '#c9a84c', weight: 3, fillColor: '#c9a84c', fillOpacity: 0.1 } }).addTo(map);
+  parcelLayer = L.geoJSON(geoWGS, { pane: 'parcelPane', style: { color: '#c9a84c', weight: 3, fillColor: '#c9a84c', fillOpacity: 0.1 } }).addTo(map);
   map.fitBounds(parcelLayer.getBounds(), { padding: [30, 30] });
 
   const ring = getLV95Ring(), wgsRing = getWGSRing();
@@ -506,6 +514,7 @@ async function loadWFSLayer(def, bbox) {
     }
 
     const layer = L.geoJSON({ type: 'FeatureCollection', features }, {
+      pane: 'wfsPane',
       style: feat => {
         if (def.id === 'grundnutzung') {
           const code = feat.properties['ZONTYP_PBG'] || feat.properties['ZONTYP_KT'];
@@ -605,7 +614,6 @@ async function loadWFSLayer(def, bbox) {
 
     // Add to map
     layer.addTo(map);
-    if (parcelLayer) parcelLayer.bringToFront();
     wfsLayerMap[def.id] = layer;
     updateBadge(def.id, 'ok', features.length + ' Obj.');
 
@@ -783,7 +791,6 @@ function toggleWFS() {
     if (showWFS && layerVisible[def.id]) { if (!map.hasLayer(l)) map.addLayer(l); }
     else map.removeLayer(l);
   });
-  if (parcelLayer) parcelLayer.bringToFront();
 }
 
 function toggleLayerVisibility(id) {
@@ -796,7 +803,7 @@ function toggleLayerVisibility(id) {
     if (eye) eye.textContent = layerVisible[id] ? '👁' : '🚫';
   }
   if (!l) return;
-  if (layerVisible[id] && showWFS) { if (!map.hasLayer(l)) { map.addLayer(l); if (parcelLayer) parcelLayer.bringToFront(); } }
+  if (layerVisible[id] && showWFS) { if (!map.hasLayer(l)) map.addLayer(l); }
   else map.removeLayer(l);
 }
 function togglePanel() { document.getElementById('panel').classList.toggle('closed'); }
